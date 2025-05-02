@@ -943,7 +943,7 @@
                     }
                 }
 
-                // Text-to-Speech Function using Kokoro
+                // Text-to-Speech Function using Kokoro or Browser Fallback
                 function speakText(message, resumeFromPause = false) {
                     // Cancel any existing speech
                     if (currentlySpeaking && currentlySpeaking.audio) {
@@ -965,33 +965,89 @@
                         document.querySelectorAll(".tts-play-button"),
                     ).find((button) => button.dataset.text === message);
 
-                    if (playButton) {
-                        playButton.classList.add("speaking");
-                        playButton.innerHTML =
-                            '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
-                    }
+                    // Get the currently selected voice value from the dropdown
+                    const selectedVoiceValue = ttsVoice.value;
 
-                    // Track the speaking state
-                    currentlySpeaking = { messageText: message };
-                    isSpeaking = true;
+                    // --- START OF FIX ---
+                    // Decide which TTS engine to use based on the selected voice value
+                    if (
+                        selectedVoiceValue &&
+                        selectedVoiceValue.startsWith("browser:")
+                    ) {
+                        // If it's a browser voice, use the built-in TTS directly
+                        console.log(
+                            "Using browser's built-in TTS for voice:",
+                            selectedVoiceValue,
+                        );
 
-                    // Use Kokoro TTS API
-                    callKokoroTTS(message)
-                        .then((audioBlob) => {
-                            const audioUrl = URL.createObjectURL(audioBlob);
-                            const audio = new Audio(audioUrl);
+                        // Update UI immediately for browser TTS (since it's synchronous)
+                        if (playButton) {
+                            playButton.classList.add("speaking");
+                            playButton.innerHTML =
+                                '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+                        }
+                        currentlySpeaking = {
+                            messageText: message,
+                            type: "browser",
+                        }; // Mark type
+                        isSpeaking = true;
 
-                            // Store audio element to control playback
-                            currentlySpeaking.audio = audio;
+                        fallbackToBuiltInTTS(message, playButton); // Pass playButton to handle UI update on end
+                    } else if (selectedVoiceValue) {
+                        // Otherwise, assume it's a Kokoro voice and try the API
+                        console.log(
+                            "Using Kokoro TTS API for voice:",
+                            selectedVoiceValue,
+                        );
 
-                            // Update UI when speech ends
-                            audio.onended = function () {
+                        if (playButton) {
+                            playButton.classList.add("speaking");
+                            playButton.innerHTML =
+                                '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+                        }
+
+                        currentlySpeaking = {
+                            messageText: message,
+                            type: "kokoro",
+                        }; // Mark type
+                        isSpeaking = true;
+
+                        callKokoroTTS(message, selectedVoiceValue) // Pass selected voice explicitly
+                            .then((audioBlob) => {
+                                const audioUrl = URL.createObjectURL(audioBlob);
+                                const audio = new Audio(audioUrl);
+                                currentlySpeaking.audio = audio; // Store audio element
+
+                                audio.onended = function () {
+                                    if (playButton) {
+                                        playButton.classList.remove("speaking");
+                                        playButton.innerHTML =
+                                            '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
+                                    }
+                                    if (
+                                        currentlySpeaking &&
+                                        currentlySpeaking.messageText ===
+                                            message
+                                    ) {
+                                        currentlySpeaking = null;
+                                        isSpeaking = false;
+                                    }
+                                    URL.revokeObjectURL(audioUrl);
+                                };
+                                audio.play();
+                            })
+                            .catch((error) => {
+                                // Handle errors *during* the Kokoro API call itself
+                                console.error(
+                                    "Error generating speech with Kokoro:",
+                                    error,
+                                );
                                 if (playButton) {
                                     playButton.classList.remove("speaking");
                                     playButton.innerHTML =
                                         '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
                                 }
-
+                                // Maybe add a message to the user that TTS failed for this message
                                 if (
                                     currentlySpeaking &&
                                     currentlySpeaking.messageText === message
@@ -999,52 +1055,51 @@
                                     currentlySpeaking = null;
                                     isSpeaking = false;
                                 }
-
-                                // Clean up URL object
-                                URL.revokeObjectURL(audioUrl);
-                            };
-
-                            // Start playback
-                            audio.play();
-                        })
-                        .catch((error) => {
-                            console.error(
-                                "Error generating speech with Kokoro:",
-                                error,
-                            );
-
-                            // Fallback to browser's speech synthesis if Kokoro fails
-                            fallbackToBuiltInTTS(message);
-
-                            if (playButton) {
-                                playButton.classList.remove("speaking");
-                                playButton.innerHTML =
-                                    '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
-                            }
-                        });
+                            });
+                    } else {
+                        // Handle case where no voice is selected at all (dropdown empty?)
+                        console.warn("No TTS voice selected.");
+                        if (playButton) {
+                            playButton.classList.remove("speaking"); // Ensure button is reset
+                            playButton.innerHTML =
+                                '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
+                        }
+                    }
+                    // --- END OF FIX ---
                 }
 
                 // Function to call Kokoro TTS API
-                async function callKokoroTTS(text) {
+                async function callKokoroTTS(text, selectedVoice) {
+                    // Added selectedVoice parameter
                     try {
-                        const selectedVoice = ttsVoice.value;
+                        // const selectedVoice = ttsVoice.value; // No longer needed here
                         const response = await fetch(KOKORO_SPEECH_URL, {
                             method: "POST",
                             headers: {
                                 "Content-Type": "application/json",
                             },
                             body: JSON.stringify({
-                                model: "kokoro",
+                                model: "kokoro", // Or derive if needed
                                 input: text,
-                                voice: selectedVoice,
+                                voice: selectedVoice, // Use passed parameter
                                 response_format: "mp3",
                                 speed: parseFloat(ttsRate.value),
+                                // pitch: parseFloat(ttsPitch.value), // Kokoro might not support pitch, check API docs
                             }),
                         });
 
                         if (!response.ok) {
+                            // Try to get error details from response body if possible
+                            let errorBody = "Could not retrieve error details.";
+                            try {
+                                errorBody = await response.text();
+                            } catch (e) {}
+                            console.error(
+                                "Kokoro TTS API Error Body:",
+                                errorBody,
+                            );
                             throw new Error(
-                                `HTTP error! Status: ${response.status}`,
+                                `HTTP error! Status: ${response.status}. ${errorBody}`,
                             );
                         }
 
@@ -1052,12 +1107,13 @@
                         return await response.blob();
                     } catch (error) {
                         console.error("Error calling Kokoro TTS API:", error);
-                        throw error;
+                        throw error; // Re-throw to be caught by speakText
                     }
                 }
 
-                // Fallback to browser's speech synthesis if Kokoro fails
-                function fallbackToBuiltInTTS(message) {
+                // Modify fallbackToBuiltInTTS slightly to handle UI update on end
+                function fallbackToBuiltInTTS(message, playButton) {
+                    // Added playButton parameter
                     console.log("Falling back to browser's built-in TTS");
 
                     // Create a new utterance
@@ -1069,33 +1125,96 @@
 
                     // Set voice if available
                     if (voices.length > 0) {
-                        const selectedVoice = parseInt(
-                            ttsVoice.value.replace("browser:", ""),
-                        );
+                        // Make sure voices are loaded if needed (might need onvoiceschanged again)
+                        if (voices.length === 0) {
+                            voices = speechSynthesis.getVoices();
+                        }
+
+                        const selectedVoiceValue = ttsVoice.value; // Get current value again
                         if (
-                            !isNaN(selectedVoice) &&
-                            selectedVoice >= 0 &&
-                            selectedVoice < voices.length
+                            selectedVoiceValue &&
+                            selectedVoiceValue.startsWith("browser:")
                         ) {
-                            utterance.voice = voices[selectedVoice];
+                            const selectedIndex = parseInt(
+                                selectedVoiceValue.replace("browser:", ""),
+                            );
+                            if (
+                                !isNaN(selectedIndex) &&
+                                selectedIndex >= 0 &&
+                                selectedIndex < voices.length
+                            ) {
+                                utterance.voice = voices[selectedIndex];
+                            } else {
+                                console.warn(
+                                    "Invalid browser voice index:",
+                                    selectedIndex,
+                                );
+                            }
                         }
                     }
+
+                    // Handle end of speech for UI update
+                    utterance.onend = function () {
+                        console.log("Browser TTS finished.");
+                        if (playButton) {
+                            playButton.classList.remove("speaking");
+                            playButton.innerHTML =
+                                '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
+                        }
+                        if (
+                            currentlySpeaking &&
+                            currentlySpeaking.messageText === message
+                        ) {
+                            currentlySpeaking = null;
+                            isSpeaking = false;
+                        }
+                    };
+
+                    // Handle errors during speech
+                    utterance.onerror = function (event) {
+                        console.error(
+                            "Browser SpeechSynthesis Error:",
+                            event.error,
+                        );
+                        if (playButton) {
+                            playButton.classList.remove("speaking");
+                            playButton.innerHTML =
+                                '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
+                        }
+                        if (
+                            currentlySpeaking &&
+                            currentlySpeaking.messageText === message
+                        ) {
+                            currentlySpeaking = null;
+                            isSpeaking = false;
+                        }
+                    };
 
                     // Speak the text
                     speechSynthesis.speak(utterance);
                 }
 
-                // Toggle speaking/paused state
                 function toggleSpeaking(messageText, button) {
-                    // If the message is different from what's currently playing
+                    // If the message is different from what's currently playing OR type is different
                     if (
-                        currentlySpeaking &&
-                        currentlySpeaking.messageText !== messageText
+                        !currentlySpeaking || // Nothing is playing
+                        currentlySpeaking.messageText !== messageText || // Different message
+                        (currentlySpeaking.type === "browser" &&
+                            !ttsVoice.value.startsWith("browser:")) || // Switched from browser to kokoro
+                        (currentlySpeaking.type === "kokoro" &&
+                            ttsVoice.value.startsWith("browser:")) // Switched from kokoro to browser
                     ) {
-                        // Stop current speech
-                        if (currentlySpeaking.audio) {
+                        // Stop current speech if any
+                        if (currentlySpeaking && currentlySpeaking.audio) {
+                            // Kokoro audio
                             currentlySpeaking.audio.pause();
                             currentlySpeaking.audio = null;
+                        } else if (
+                            currentlySpeaking &&
+                            currentlySpeaking.type === "browser"
+                        ) {
+                            // Browser speech
+                            speechSynthesis.cancel();
                         }
 
                         // Reset all buttons first
@@ -1107,32 +1226,47 @@
                                     '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
                             });
 
-                        // Start new speech
+                        // Start new speech (speakText handles deciding Kokoro vs Browser)
                         speakText(messageText);
                         return;
                     }
 
-                    // Handle play/pause for the same message
+                    // Handle play/pause for the *same* message and *same* type
                     if (
-                        isSpeaking &&
-                        currentlySpeaking &&
+                        currentlySpeaking.type === "kokoro" &&
                         currentlySpeaking.audio
                     ) {
                         if (currentlySpeaking.audio.paused) {
-                            // Resume speech
+                            // Resume Kokoro speech
                             currentlySpeaking.audio.play();
                             button.classList.add("speaking");
                             button.innerHTML =
                                 '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
                         } else {
-                            // Pause speech
+                            // Pause Kokoro speech
                             currentlySpeaking.audio.pause();
                             button.classList.remove("speaking");
                             button.innerHTML =
                                 '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
                         }
+                    } else if (currentlySpeaking.type === "browser") {
+                        // Handle play/pause for browser speech (more complex, often just cancel/restart)
+                        if (speechSynthesis.paused) {
+                            speechSynthesis.resume();
+                            button.classList.add("speaking");
+                            button.innerHTML =
+                                '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+                        } else if (speechSynthesis.speaking) {
+                            speechSynthesis.pause();
+                            button.classList.remove("speaking");
+                            button.innerHTML =
+                                '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
+                        } else {
+                            // If not speaking/paused (e.g., finished), start again
+                            speakText(messageText);
+                        }
                     } else {
-                        // Start new speech
+                        // Fallback: If state is unclear, just start new speech
                         speakText(messageText);
                     }
                 }
