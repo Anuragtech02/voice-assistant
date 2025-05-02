@@ -1,52 +1,73 @@
-version: "3"
+# Coolify-compatible docker-compose.yml
+version: "3.8"
 
 services:
-  # Kokoro TTS API service
+  # Kokoro TTS API service (Internal Service)
   kokoro-tts:
     image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.2
-    container_name: kokoro-tts
+    container_name: kokoro-tts # Optional, Coolify might override
     restart: unless-stopped
     networks:
       - voice-assistant-network
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
-    volumes:
-      - kokoro-cache:/app/.cache
+    # No ports needed, only accessed internally by frontend/backend
+    # No dns needed, Coolify/Docker manages network DNS
 
-  # Node.js backend for AI API proxying
+  # Node.js backend for AI API proxying (Internal Service)
   voice-assistant-backend:
     build:
-      context: ./backend
+      context: ./backend # Path relative to docker-compose.yml
       dockerfile: Dockerfile
-    container_name: voice-assistant-backend
+    container_name: voice-assistant-backend # Optional
     restart: unless-stopped
-    ports:
-      - "9001:3000"
-    env_file: ./backend/.env
+    environment:
+      # PORT the Node.js app listens on *inside* the container
+      - PORT=9001
+      # These will be injected by Coolify secrets
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4} # Provide a default if needed
     networks:
       - voice-assistant-network
     depends_on:
       - kokoro-tts
+    # No ports needed, only accessed internally by frontend
 
-  # Frontend web server for voice assistant
+  # Frontend web server for voice assistant (Exposed via Coolify's Traefik)
   voice-assistant-frontend:
     build:
-      context: ./frontend
+      context: ./frontend # Path relative to docker-compose.yml
       dockerfile: Dockerfile
-    container_name: voice-assistant-frontend
+    container_name: voice-assistant-frontend # Optional
     restart: unless-stopped
-    ports:
-      - "80:80"
+    networks:
+      - voice-assistant-network
     depends_on:
       - kokoro-tts
       - voice-assistant-backend
-    networks:
-      - voice-assistant-network
+    # --- Coolify/Traefik Labels ---
+    # Remove 'ports' mapping - Coolify handles external exposure via Traefik
+    labels:
+      - traefik.enable=true
+      # Define how Traefik routes external traffic to this service
+      - traefik.http.routers.voice-assistant-frontend.rule=Host(`${COOLIFY_FQDN}`)
+      # Use the standard Coolify web entry point (usually handles HTTPS)
+      - traefik.http.routers.voice-assistant-frontend.entryPoints=http # Or 'https' if preferred/configured in Coolify
+      # Define the service Traefik should forward to
+      - traefik.http.services.voice-assistant-frontend.loadbalancer.server.port=80 # Port Nginx listens on *inside* this container
+    # ------------------------------
 
+# Define the network for inter-service communication
 networks:
   voice-assistant-network:
     driver: bridge
-
-volumes:
-  kokoro-cache:
+# --- Volumes ---
+# Define any named volumes here if your services need persistent storage.
+# Based on your setup, it doesn't seem like you need volumes unless
+# kokoro-tts downloads models to a specific path you want to persist
+# outside the container lifecycle.
+# Example:
+# volumes:
+#   kokoro_models:
+# And add 'volumes:' section to kokoro-tts service:
+#   volumes:
+#     - kokoro_models:/path/inside/container/where/models/are/stored
