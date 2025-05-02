@@ -33,28 +33,28 @@ services:
     # No ports needed, only accessed internally by frontend
 
   # Frontend web server for voice assistant (Exposed via Coolify's Traefik)
-  voice-assistant-frontend:
-    build:
-      context: ./frontend # Path relative to docker-compose.yml
-      dockerfile: Dockerfile
-    container_name: voice-assistant-frontend # Optional
-    restart: unless-stopped
-    networks:
-      - voice-assistant-network
-    depends_on:
-      - kokoro-tts
-      - voice-assistant-backend
-    # --- Coolify/Traefik Labels ---
-    # Remove 'ports' mapping - Coolify handles external exposure via Traefik
-    labels:
-      - traefik.enable=true
-      # Define how Traefik routes external traffic to this service
-      - traefik.http.routers.voice-assistant-frontend.rule=Host(`${COOLIFY_FQDN}`)
-      # Use the standard Coolify web entry point (usually handles HTTPS)
-      - traefik.http.routers.voice-assistant-frontend.entryPoints=http # Or 'https' if preferred/configured in Coolify
-      # Define the service Traefik should forward to
-      - traefik.http.services.voice-assistant-frontend.loadbalancer.server.port=9002 # Port Nginx listens on *inside* this container
-    # ------------------------------
+  # voice-assistant-frontend:
+  #   build:
+  #     context: ./frontend # Path relative to docker-compose.yml
+  #     dockerfile: Dockerfile
+  #   container_name: voice-assistant-frontend # Optional
+  #   restart: unless-stopped
+  #   networks:
+  #     - voice-assistant-network
+  #   depends_on:
+  #     - kokoro-tts
+  #     - voice-assistant-backend
+  #   # --- Coolify/Traefik Labels ---
+  #   # Remove 'ports' mapping - Coolify handles external exposure via Traefik
+  #   labels:
+  #     - traefik.enable=true
+  #     # Define how Traefik routes external traffic to this service
+  #     - traefik.http.routers.voice-assistant-frontend.rule=Host(`${COOLIFY_FQDN}`)
+  #     # Use the standard Coolify web entry point (usually handles HTTPS)
+  #     - traefik.http.routers.voice-assistant-frontend.entryPoints=http # Or 'https' if preferred/configured in Coolify
+  #     # Define the service Traefik should forward to
+  #     - traefik.http.services.voice-assistant-frontend.loadbalancer.server.port=9002 # Port Nginx listens on *inside* this container
+  #   # ------------------------------
 
 # Define the network for inter-service communication
 networks:
