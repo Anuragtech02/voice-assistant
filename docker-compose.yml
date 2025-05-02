@@ -1,0 +1,48 @@
+version: "3"
+
+services:
+  # Kokoro TTS API service
+  kokoro-tts:
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.2
+    container_name: kokoro-tts
+    restart: unless-stopped
+    networks:
+      - voice-assistant-network
+
+  # Node.js backend for AI API proxying
+  voice-assistant-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: voice-assistant-backend
+    restart: unless-stopped
+    ports:
+      - "9001:9001"
+    environment:
+      - PORT=3000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - OPENAI_MODEL=gpt-4
+    networks:
+      - voice-assistant-network
+    depends_on:
+      - kokoro-tts
+
+  # Frontend web server for voice assistant
+  voice-assistant-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: voice-assistant-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - kokoro-tts
+      - voice-assistant-backend
+    networks:
+      - voice-assistant-network
+
+networks:
+  voice-assistant-network:
+    driver: bridge

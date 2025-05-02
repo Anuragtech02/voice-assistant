@@ -1,0 +1,21 @@
+{
+  "name": "nuc-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "expres": "^0.0.5",
+    "express": "^5.1.0",
+    "openai": "^4.96.2"
+  }
+}

@@ -1,0 +1,1209 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>AI Voice Assistant</title>
+    </head>
+    <body>
+        <div class="speech-bot-container">
+            <div class="speech-bot-header">
+                <div class="header-title">AI Voice Assistant</div>
+                <div class="model-selector">
+                    AI Model:
+                    <select id="model-select">
+                        <option value="openai" selected>ChatGPT</option>
+                        <option value="gemini">Gemini</option>
+                    </select>
+                </div>
+            </div>
+            <div class="speech-bot-content">
+                <div class="speech-bot-messages" id="messageContainer">
+                    <!-- Messages will appear here -->
+                </div>
+                <div class="speech-bot-controls">
+                    <div class="speech-bot-button">
+                        <button id="startRecording" class="recording-button">
+                            <span class="mic-icon">🎤</span>
+                            <span class="button-text">Hold to speak</span>
+                        </button>
+                        <div id="recordingStatus" class="recording-status">
+                            Tap microphone to start
+                        </div>
+                    </div>
+                    <div class="speech-bot-text-input">
+                        <form id="messageForm" class="speech-bot-text-input">
+                            <input
+                                type="text"
+                                id="textInput"
+                                placeholder="Type your message here..."
+                            />
+                            <button type="submit" id="sendButton">Send</button>
+                        </form>
+                    </div>
+                    <div class="speech-bot-tts">
+                        <label class="tts-toggle">
+                            <input type="checkbox" id="enableTTS" checked />
+                            <span>Text-to-Speech Output</span>
+                        </label>
+                        <div class="tts-settings" id="ttsSettings">
+                            <div class="tts-slider">
+                                <label for="tts-rate">Speed:</label>
+                                <input
+                                    type="range"
+                                    id="tts-rate"
+                                    min="0.5"
+                                    max="2"
+                                    value="1"
+                                    step="0.1"
+                                />
+                                <span id="tts-rate-value">1.0</span>
+                            </div>
+                            <div class="tts-slider">
+                                <label for="tts-pitch">Pitch:</label>
+                                <input
+                                    type="range"
+                                    id="tts-pitch"
+                                    min="0.5"
+                                    max="2"
+                                    value="1"
+                                    step="0.1"
+                                />
+                                <span id="tts-pitch-value">1.0</span>
+                            </div>
+                            <div class="tts-voice">
+                                <label for="tts-voice">Voice:</label>
+                                <select id="tts-voice"></select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CSS Styling -->
+        <style>
+            .speech-bot-container {
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    Oxygen, Ubuntu, Cantarell, sans-serif;
+                max-width: 400px;
+                margin: 0 auto;
+                border-radius: 12px;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+                overflow: hidden;
+                background-color: #ffffff;
+                height: auto;
+                min-height: 500px;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .speech-bot-header {
+                background-color: #5045e4;
+                color: white;
+                padding: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+
+            .header-title {
+                font-size: 18px;
+                font-weight: 500;
+            }
+
+            .model-selector {
+                display: flex;
+                align-items: center;
+                font-size: 14px;
+                gap: 6px;
+            }
+
+            .model-selector select {
+                padding: 4px 8px;
+                border-radius: 4px;
+                border: none;
+                background-color: white;
+                color: #333;
+                font-size: 14px;
+            }
+
+            .speech-bot-content {
+                padding: 0;
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                height: calc(100% - 56px);
+            }
+
+            .speech-bot-messages {
+                flex: 1;
+                overflow-y: auto;
+                padding: 16px;
+                background-color: #f7f7ff;
+                min-height: 200px;
+                max-height: 300px;
+            }
+
+            .message {
+                margin-bottom: 16px;
+                padding: 12px 16px;
+                border-radius: 18px;
+                max-width: 85%;
+                word-wrap: break-word;
+                line-height: 1.4;
+                position: relative;
+                font-size: 14px;
+            }
+
+            .user-message {
+                background-color: #e5e7eb;
+                margin-left: auto;
+                border-bottom-right-radius: 4px;
+                color: #333;
+            }
+
+            .bot-message {
+                background-color: #eef2ff;
+                margin-right: auto;
+                border-bottom-left-radius: 4px;
+                color: #333;
+            }
+
+            .speech-bot-controls {
+                display: flex;
+                flex-direction: column;
+                padding: 16px;
+                gap: 16px;
+                border-top: 1px solid #e5e7eb;
+            }
+
+            .speech-bot-button {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .recording-button {
+                background-color: #5045e4;
+                color: white;
+                border: none;
+                border-radius: 50px;
+                padding: 12px 24px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                transition: all 0.2s ease;
+                box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+            }
+
+            .recording-button:hover {
+                background-color: #4338ca;
+            }
+
+            .recording-button.active {
+                background-color: #dc2626;
+                animation: pulse 1.5s infinite;
+            }
+
+            @keyframes pulse {
+                0% {
+                    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5);
+                }
+                70% {
+                    box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+                }
+                100% {
+                    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+                }
+            }
+
+            .mic-icon {
+                margin-right: 8px;
+                font-size: 16px;
+            }
+
+            .recording-status {
+                margin-top: 8px;
+                font-size: 12px;
+                color: #6b7280;
+                text-align: center;
+            }
+
+            /* Text input styles */
+            .speech-bot-text-input {
+                display: flex;
+                gap: 8px;
+                width: 100%;
+            }
+
+            .speech-bot-text-input input {
+                flex: 1;
+                padding: 10px 12px;
+                border-radius: 20px;
+                border: 1px solid #d1d5db;
+                font-size: 14px;
+            }
+
+            .speech-bot-text-input button {
+                background-color: #5045e4;
+                color: white;
+                border: none;
+                border-radius: 20px;
+                padding: 0 16px;
+                cursor: pointer;
+                font-size: 14px;
+            }
+
+            /* TTS controls */
+            .speech-bot-tts {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .tts-toggle {
+                display: flex;
+                align-items: center;
+                font-size: 14px;
+                color: #4b5563;
+                cursor: pointer;
+            }
+
+            .tts-toggle input {
+                margin-right: 8px;
+            }
+
+            .tts-settings {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .tts-slider {
+                display: flex;
+                align-items: center;
+                font-size: 14px;
+                color: #4b5563;
+            }
+
+            .tts-slider label {
+                width: 50px;
+            }
+
+            .tts-slider input {
+                flex: 1;
+                margin: 0 8px;
+            }
+
+            .tts-slider span {
+                width: 30px;
+                text-align: right;
+            }
+
+            .tts-voice {
+                display: flex;
+                align-items: center;
+                font-size: 14px;
+                color: #4b5563;
+                margin-bottom: 10px;
+            }
+
+            .tts-voice label {
+                width: 50px;
+                margin-right: 8px;
+            }
+
+            .tts-voice select {
+                flex: 1;
+                padding: 6px 8px;
+                border-radius: 4px;
+                border: 1px solid #d1d5db;
+                font-size: 14px;
+            }
+
+            /* Loading indicator for bot responses */
+            .typing-indicator {
+                display: flex;
+                padding: 12px 16px;
+                background-color: #eef2ff;
+                border-radius: 18px;
+                margin-right: auto;
+                border-bottom-left-radius: 4px;
+                margin-bottom: 12px;
+                width: 60px;
+            }
+
+            .typing-indicator span {
+                height: 8px;
+                width: 8px;
+                background-color: #6b7280;
+                border-radius: 50%;
+                display: inline-block;
+                margin-right: 4px;
+                animation: bouncingDots 1.4s infinite ease-in-out both;
+            }
+
+            .typing-indicator span:nth-child(1) {
+                animation-delay: -0.32s;
+            }
+
+            .typing-indicator span:nth-child(2) {
+                animation-delay: -0.16s;
+            }
+
+            @keyframes bouncingDots {
+                0%,
+                80%,
+                100% {
+                    transform: scale(0);
+                }
+                40% {
+                    transform: scale(1);
+                }
+            }
+
+            /* Model indicator in messages */
+            .message-model {
+                font-size: 10px;
+                opacity: 0.7;
+                position: absolute;
+                bottom: -16px;
+                left: 8px;
+            }
+
+            /* Play button for text-to-speech */
+            .tts-play-button {
+                cursor: pointer;
+                position: absolute;
+                right: 8px;
+                bottom: 8px;
+                width: 24px;
+                height: 24px;
+                background-color: rgba(79, 70, 229, 0.1);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s ease;
+            }
+
+            .tts-play-button:hover {
+                background-color: rgba(79, 70, 229, 0.2);
+            }
+
+            .tts-play-button.speaking {
+                background-color: rgba(220, 38, 38, 0.1);
+            }
+
+            .tts-play-button svg {
+                width: 14px;
+                height: 14px;
+                fill: #5045e4;
+            }
+
+            .tts-play-button.speaking svg {
+                fill: #dc2626;
+            }
+        </style>
+
+        <!-- JavaScript -->
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                // DOM Elements
+                const startRecordingButton =
+                    document.getElementById("startRecording");
+                const recordingStatus =
+                    document.getElementById("recordingStatus");
+                const messageContainer =
+                    document.getElementById("messageContainer");
+                const modelSelect = document.getElementById("model-select");
+                const enableTTS = document.getElementById("enableTTS");
+                const ttsSettings = document.getElementById("ttsSettings");
+                const ttsRate = document.getElementById("tts-rate");
+                const ttsPitch = document.getElementById("tts-pitch");
+                const ttsVoice = document.getElementById("tts-voice");
+                const ttsRateValue = document.getElementById("tts-rate-value");
+                const ttsPitchValue =
+                    document.getElementById("tts-pitch-value");
+                const textInput = document.getElementById("textInput");
+                const sendButton = document.getElementById("sendButton");
+                const messageForm = document.getElementById("messageForm");
+
+                // Initialize Web Speech API for Speech Recognition
+                const SpeechRecognition =
+                    window.SpeechRecognition || window.webkitSpeechRecognition;
+                let usingSpeechRecognition = true;
+                let recognition;
+
+                if (!SpeechRecognition) {
+                    recordingStatus.textContent =
+                        "Speech recognition not supported in this browser";
+                    startRecordingButton.disabled = true;
+                    usingSpeechRecognition = false;
+                } else {
+                    recognition = new SpeechRecognition();
+                    recognition.continuous = false;
+                    recognition.interimResults = true;
+                    recognition.lang = "en-US";
+                    recognition.maxAlternatives = 1;
+                }
+
+                // Initialize Web Speech API for Speech Synthesis (as fallback)
+                const speechSynthesis = window.speechSynthesis;
+                let voices = [];
+                let currentlySpeaking = null;
+                let isSpeaking = false;
+
+                // TTS settings event listeners
+                ttsRate.addEventListener("input", () => {
+                    ttsRateValue.textContent = parseFloat(
+                        ttsRate.value,
+                    ).toFixed(1);
+                });
+
+                ttsPitch.addEventListener("input", () => {
+                    ttsPitchValue.textContent = parseFloat(
+                        ttsPitch.value,
+                    ).toFixed(1);
+                });
+
+                enableTTS.addEventListener("change", () => {
+                    ttsSettings.style.display = enableTTS.checked
+                        ? "flex"
+                        : "none";
+                });
+
+                // Server proxy endpoint - Replace with your actual deployed server URL
+                const SERVER_PROXY_URL = "http://localhost:9001/api/chat";
+
+                // Kokoro TTS API endpoints
+                const KOKORO_VOICES_URL = "/tts/audio/voices";
+                const KOKORO_SPEECH_URL = "/tts/audio/speech";
+
+                // State variables
+                let isRecording = false;
+                let currentTranscript = "";
+                let finalTranscript = "";
+                let processingAI = false;
+
+                // For handling reconnection
+                let reconnectionAttempts = 0;
+                const MAX_RECONNECTION_ATTEMPTS = 3;
+
+                // For handling network errors
+                let networkErrorCount = 0;
+                const MAX_NETWORK_ERRORS = 3;
+
+                // Add welcome message
+                addBotMessage(
+                    "Hello! How can I help you today? Tap the microphone button to speak, or type your message below.",
+                    modelSelect.value,
+                );
+
+                // Initialize Kokoro voices
+                initKokoroVoices();
+
+                // Event handler for text input form submission
+                messageForm.addEventListener("submit", function (e) {
+                    // Always prevent the default form submission
+                    e.preventDefault();
+
+                    // Get the message
+                    const message = textInput.value.trim();
+
+                    // Only process if we have a message and aren't already processing
+                    if (message && !processingAI) {
+                        // Clear the input
+                        textInput.value = "";
+
+                        // Process the message
+                        processTranscript(message);
+                    }
+                });
+
+                // Event handlers for recording button
+                startRecordingButton.addEventListener(
+                    "mousedown",
+                    startRecording,
+                );
+                startRecordingButton.addEventListener(
+                    "touchstart",
+                    startRecording,
+                );
+                startRecordingButton.addEventListener("mouseup", stopRecording);
+                startRecordingButton.addEventListener(
+                    "touchend",
+                    stopRecording,
+                );
+                startRecordingButton.addEventListener(
+                    "mouseleave",
+                    stopRecording,
+                );
+
+                // Model selection change event
+                modelSelect.addEventListener("change", function () {
+                    addBotMessage(
+                        `Switched to ${
+                            modelSelect.options[modelSelect.selectedIndex].text
+                        }. How can I help you?`,
+                        modelSelect.value,
+                    );
+                });
+
+                // Functions for recording
+                function startRecording(e) {
+                    e.preventDefault();
+
+                    if (isRecording || processingAI || !usingSpeechRecognition)
+                        return;
+
+                    // Check for network connectivity
+                    if (!navigator.onLine) {
+                        recordingStatus.textContent =
+                            "No internet connection. Please check your network.";
+                        return;
+                    }
+
+                    isRecording = true;
+                    finalTranscript = "";
+                    currentTranscript = "";
+
+                    try {
+                        recognition.start();
+                        startRecordingButton.classList.add("active");
+                        startRecordingButton.querySelector(
+                            ".button-text",
+                        ).textContent = "Listening...";
+                        recordingStatus.textContent = "Listening...";
+
+                        // Safety timeout - automatically stop after 15 seconds to prevent hanging
+                        setTimeout(() => {
+                            if (isRecording) {
+                                stopRecording({ preventDefault: () => {} });
+                            }
+                        }, 15000);
+                    } catch (error) {
+                        console.error("Error starting recognition:", error);
+                        recordingStatus.textContent =
+                            "Error starting speech recognition. Please try again.";
+                        isRecording = false;
+                    }
+                }
+
+                function stopRecording(e) {
+                    if (e) e.preventDefault();
+
+                    if (!isRecording || !usingSpeechRecognition) return;
+
+                    isRecording = false;
+                    recognition.stop();
+                    startRecordingButton.classList.remove("active");
+                    startRecordingButton.querySelector(
+                        ".button-text",
+                    ).textContent = "Hold to speak";
+
+                    if (finalTranscript.trim()) {
+                        processTranscript(finalTranscript);
+                    } else if (currentTranscript.trim()) {
+                        processTranscript(currentTranscript);
+                    } else {
+                        recordingStatus.textContent = "Tap microphone to start";
+                    }
+                }
+
+                // Recognition event handlers
+                if (usingSpeechRecognition) {
+                    recognition.onresult = function (event) {
+                        currentTranscript = "";
+
+                        for (
+                            let i = event.resultIndex;
+                            i < event.results.length;
+                            i++
+                        ) {
+                            if (event.results[i].isFinal) {
+                                finalTranscript +=
+                                    event.results[i][0].transcript + " ";
+                            } else {
+                                currentTranscript +=
+                                    event.results[i][0].transcript;
+                            }
+                        }
+
+                        if (currentTranscript) {
+                            recordingStatus.textContent =
+                                "Hearing: " + currentTranscript;
+                        }
+                    };
+
+                    recognition.onerror = function (event) {
+                        console.error("Recognition error:", event.error);
+
+                        // Handle specific error types
+                        if (event.error === "network") {
+                            networkErrorCount++;
+                            console.log(
+                                `Network error detected (${networkErrorCount}/${MAX_NETWORK_ERRORS}). Attempting to reconnect...`,
+                            );
+
+                            if (networkErrorCount >= MAX_NETWORK_ERRORS) {
+                                // Switch to text input fallback after too many network errors
+                                recordingStatus.textContent =
+                                    "Speech recognition unavailable. Please use text input.";
+                                isRecording = false;
+                                startRecordingButton.classList.remove("active");
+                                startRecordingButton.disabled = true;
+                                startRecordingButton.style.opacity = "0.5";
+                                startRecordingButton.querySelector(
+                                    ".button-text",
+                                ).textContent = "Voice unavailable";
+
+                                // Add message to inform the user
+                                addBotMessage(
+                                    "I'm having trouble connecting to the speech recognition service. Please use the text input instead.",
+                                    modelSelect.value,
+                                );
+                                return;
+                            }
+
+                            recordingStatus.textContent = `Network issue detected. Reconnecting... (${networkErrorCount}/${MAX_NETWORK_ERRORS})`;
+
+                            // Wait a moment and try to restart
+                            setTimeout(() => {
+                                try {
+                                    if (isRecording) {
+                                        recognition.stop();
+                                        setTimeout(() => {
+                                            recognition.start();
+                                            recordingStatus.textContent =
+                                                "Reconnected. Listening...";
+                                        }, 300);
+                                    }
+                                } catch (e) {
+                                    console.error(
+                                        "Failed to restart after network error:",
+                                        e,
+                                    );
+                                    recordingStatus.textContent =
+                                        "Could not reconnect. Please try again.";
+                                    isRecording = false;
+                                    startRecordingButton.classList.remove(
+                                        "active",
+                                    );
+                                    startRecordingButton.querySelector(
+                                        ".button-text",
+                                    ).textContent = "Hold to speak";
+                                }
+                            }, 1000);
+                        } else if (event.error === "no-speech") {
+                            // This is common and not critical
+                            recordingStatus.textContent =
+                                "No speech detected. Please try again.";
+                            // Reset network error count on non-network errors
+                            networkErrorCount = 0;
+                        } else if (event.error === "aborted") {
+                            recordingStatus.textContent =
+                                "Listening was aborted.";
+                            networkErrorCount = 0;
+                        } else if (event.error === "audio-capture") {
+                            recordingStatus.textContent =
+                                "Could not capture audio. Please check your microphone.";
+                            addBotMessage(
+                                "I'm having trouble accessing your microphone. You can type your messages below instead.",
+                                modelSelect.value,
+                            );
+                            networkErrorCount = 0;
+                        } else if (event.error === "not-allowed") {
+                            recordingStatus.textContent =
+                                "Microphone access denied. Please allow microphone access.";
+                            addBotMessage(
+                                "I don't have permission to access your microphone. You can type your messages below instead.",
+                                modelSelect.value,
+                            );
+                            networkErrorCount = 0;
+                        } else {
+                            // Handle other errors
+                            recordingStatus.textContent =
+                                "Error: " + event.error;
+                            networkErrorCount = 0;
+                        }
+
+                        // Only stop recording if it's a critical error
+                        if (
+                            event.error !== "network" &&
+                            event.error !== "no-speech"
+                        ) {
+                            isRecording = false;
+                            startRecordingButton.classList.remove("active");
+                            startRecordingButton.querySelector(
+                                ".button-text",
+                            ).textContent = "Hold to speak";
+                        }
+                    };
+
+                    recognition.onend = function () {
+                        if (isRecording) {
+                            // Only attempt to restart a limited number of times
+                            if (
+                                reconnectionAttempts < MAX_RECONNECTION_ATTEMPTS
+                            ) {
+                                reconnectionAttempts++;
+                                recordingStatus.textContent = `Reconnecting... (Attempt ${reconnectionAttempts}/${MAX_RECONNECTION_ATTEMPTS})`;
+
+                                // Add a small delay before restarting
+                                setTimeout(() => {
+                                    try {
+                                        recognition.start();
+                                    } catch (error) {
+                                        console.error(
+                                            "Error restarting recognition:",
+                                            error,
+                                        );
+                                        recordingStatus.textContent =
+                                            "Failed to reconnect. Please try again.";
+                                        isRecording = false;
+                                        startRecordingButton.classList.remove(
+                                            "active",
+                                        );
+                                        startRecordingButton.querySelector(
+                                            ".button-text",
+                                        ).textContent = "Hold to speak";
+                                    }
+                                }, 300);
+                            } else {
+                                // Max reconnection attempts reached
+                                recordingStatus.textContent =
+                                    "Connection issues detected. Please try again.";
+                                isRecording = false;
+                                startRecordingButton.classList.remove("active");
+                                startRecordingButton.querySelector(
+                                    ".button-text",
+                                ).textContent = "Hold to speak";
+                                reconnectionAttempts = 0; // Reset for next time
+                            }
+                        } else {
+                            // Reset reconnection attempts when we're done
+                            reconnectionAttempts = 0;
+                        }
+                    };
+                }
+
+                // Initialize Kokoro voices
+                async function initKokoroVoices() {
+                    try {
+                        const response = await fetch(KOKORO_VOICES_URL);
+                        if (!response.ok) {
+                            throw new Error(
+                                `HTTP error! Status: ${response.status}`,
+                            );
+                        }
+
+                        const data = await response.json();
+
+                        // Clear the voice dropdown
+                        ttsVoice.innerHTML = "";
+
+                        if (data && data.voices && data.voices.length > 0) {
+                            // Add each Kokoro voice to the dropdown
+                            data.voices.forEach((voice) => {
+                                const option = document.createElement("option");
+                                option.value = voice.id;
+                                option.textContent = voice.name || voice.id;
+                                ttsVoice.appendChild(option);
+                            });
+
+                            console.log("Successfully loaded Kokoro voices");
+                        } else {
+                            // Fallback to browser voices if no Kokoro voices are found
+                            console.warn(
+                                "No Kokoro voices found, falling back to browser voices",
+                            );
+                            loadBrowserVoices();
+                        }
+                    } catch (error) {
+                        console.error("Error loading Kokoro voices:", error);
+                        // Fallback to browser voices
+                        loadBrowserVoices();
+                    }
+                }
+
+                // Fallback to load browser voices
+                function loadBrowserVoices() {
+                    voices = speechSynthesis.getVoices();
+                    if (voices.length === 0) {
+                        if (speechSynthesis.onvoiceschanged !== undefined) {
+                            speechSynthesis.onvoiceschanged = function () {
+                                voices = speechSynthesis.getVoices();
+                                populateBrowserVoices();
+                            };
+                        }
+                    } else {
+                        populateBrowserVoices();
+                    }
+                }
+
+                function populateBrowserVoices() {
+                    // Clear current options
+                    ttsVoice.innerHTML = "";
+
+                    // Add browser voices
+                    voices.forEach((voice, index) => {
+                        const option = document.createElement("option");
+                        option.value = "browser:" + index;
+                        option.textContent = voice.name;
+                        ttsVoice.appendChild(option);
+
+                        // Select default voice
+                        if (voice.default) {
+                            ttsVoice.value = "browser:" + index;
+                        }
+                    });
+                }
+
+                // Process the transcript and call AI API via server proxy
+                function processTranscript(transcript) {
+                    if (!transcript.trim() || processingAI) return;
+
+                    processingAI = true;
+                    const cleanTranscript = transcript.trim();
+                    addUserMessage(cleanTranscript);
+                    recordingStatus.textContent = "Processing...";
+
+                    // Show typing indicator
+                    addTypingIndicator();
+
+                    // Get the selected model
+                    const selectedModel = modelSelect.value;
+
+                    // Call the server proxy
+                    callServerProxy(cleanTranscript, selectedModel)
+                        .then((response) => {
+                            // Remove typing indicator
+                            removeTypingIndicator();
+
+                            if (response) {
+                                // Add the bot message and speak it if TTS is enabled
+                                addBotMessage(
+                                    response.response,
+                                    response.model,
+                                );
+
+                                // If text-to-speech is enabled, speak the response
+                                if (enableTTS.checked) {
+                                    speakText(response.response);
+                                }
+                            } else {
+                                addBotMessage(
+                                    "I'm sorry, I couldn't process that request. Please try again.",
+                                    selectedModel,
+                                );
+                            }
+                            processingAI = false;
+                            recordingStatus.textContent =
+                                "Tap microphone to start";
+                        })
+                        .catch((error) => {
+                            console.error("Error calling server proxy:", error);
+                            removeTypingIndicator();
+                            addBotMessage(
+                                "I'm sorry, there was an error processing your request. Please try again later.",
+                                selectedModel,
+                            );
+                            processingAI = false;
+                            recordingStatus.textContent =
+                                "Error. Please try again.";
+                        });
+                }
+
+                // Call Server Proxy
+                async function callServerProxy(message, model) {
+                    try {
+                        const response = await fetch(SERVER_PROXY_URL, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({ message, model }),
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(
+                                `API call failed with status: ${response.status}`,
+                            );
+                        }
+
+                        return await response.json();
+                    } catch (error) {
+                        console.error("Error in callServerProxy:", error);
+                        throw error;
+                    }
+                }
+
+                // Text-to-Speech Function using Kokoro
+                function speakText(message, resumeFromPause = false) {
+                    // Cancel any existing speech
+                    if (currentlySpeaking && currentlySpeaking.audio) {
+                        currentlySpeaking.audio.pause();
+                        currentlySpeaking.audio = null;
+
+                        // Reset all play buttons first
+                        document
+                            .querySelectorAll(".tts-play-button")
+                            .forEach((button) => {
+                                button.classList.remove("speaking");
+                                button.innerHTML =
+                                    '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
+                            });
+                    }
+
+                    // Find the play button for this message
+                    const playButton = Array.from(
+                        document.querySelectorAll(".tts-play-button"),
+                    ).find((button) => button.dataset.text === message);
+
+                    if (playButton) {
+                        playButton.classList.add("speaking");
+                        playButton.innerHTML =
+                            '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+                    }
+
+                    // Track the speaking state
+                    currentlySpeaking = { messageText: message };
+                    isSpeaking = true;
+
+                    // Use Kokoro TTS API
+                    callKokoroTTS(message)
+                        .then((audioBlob) => {
+                            const audioUrl = URL.createObjectURL(audioBlob);
+                            const audio = new Audio(audioUrl);
+
+                            // Store audio element to control playback
+                            currentlySpeaking.audio = audio;
+
+                            // Update UI when speech ends
+                            audio.onended = function () {
+                                if (playButton) {
+                                    playButton.classList.remove("speaking");
+                                    playButton.innerHTML =
+                                        '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
+                                }
+
+                                if (
+                                    currentlySpeaking &&
+                                    currentlySpeaking.messageText === message
+                                ) {
+                                    currentlySpeaking = null;
+                                    isSpeaking = false;
+                                }
+
+                                // Clean up URL object
+                                URL.revokeObjectURL(audioUrl);
+                            };
+
+                            // Start playback
+                            audio.play();
+                        })
+                        .catch((error) => {
+                            console.error(
+                                "Error generating speech with Kokoro:",
+                                error,
+                            );
+
+                            // Fallback to browser's speech synthesis if Kokoro fails
+                            fallbackToBuiltInTTS(message);
+
+                            if (playButton) {
+                                playButton.classList.remove("speaking");
+                                playButton.innerHTML =
+                                    '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
+                            }
+                        });
+                }
+
+                // Function to call Kokoro TTS API
+                async function callKokoroTTS(text) {
+                    try {
+                        const selectedVoice = ttsVoice.value;
+                        const response = await fetch(KOKORO_SPEECH_URL, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({
+                                model: "kokoro",
+                                input: text,
+                                voice: selectedVoice,
+                                response_format: "mp3",
+                                speed: parseFloat(ttsRate.value),
+                            }),
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(
+                                `HTTP error! Status: ${response.status}`,
+                            );
+                        }
+
+                        // The API returns the audio file directly
+                        return await response.blob();
+                    } catch (error) {
+                        console.error("Error calling Kokoro TTS API:", error);
+                        throw error;
+                    }
+                }
+
+                // Fallback to browser's speech synthesis if Kokoro fails
+                function fallbackToBuiltInTTS(message) {
+                    console.log("Falling back to browser's built-in TTS");
+
+                    // Create a new utterance
+                    const utterance = new SpeechSynthesisUtterance(message);
+
+                    // Set utterance properties
+                    utterance.rate = parseFloat(ttsRate.value);
+                    utterance.pitch = parseFloat(ttsPitch.value);
+
+                    // Set voice if available
+                    if (voices.length > 0) {
+                        const selectedVoice = parseInt(
+                            ttsVoice.value.replace("browser:", ""),
+                        );
+                        if (
+                            !isNaN(selectedVoice) &&
+                            selectedVoice >= 0 &&
+                            selectedVoice < voices.length
+                        ) {
+                            utterance.voice = voices[selectedVoice];
+                        }
+                    }
+
+                    // Speak the text
+                    speechSynthesis.speak(utterance);
+                }
+
+                // Toggle speaking/paused state
+                function toggleSpeaking(messageText, button) {
+                    // If the message is different from what's currently playing
+                    if (
+                        currentlySpeaking &&
+                        currentlySpeaking.messageText !== messageText
+                    ) {
+                        // Stop current speech
+                        if (currentlySpeaking.audio) {
+                            currentlySpeaking.audio.pause();
+                            currentlySpeaking.audio = null;
+                        }
+
+                        // Reset all buttons first
+                        document
+                            .querySelectorAll(".tts-play-button")
+                            .forEach((btn) => {
+                                btn.classList.remove("speaking");
+                                btn.innerHTML =
+                                    '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
+                            });
+
+                        // Start new speech
+                        speakText(messageText);
+                        return;
+                    }
+
+                    // Handle play/pause for the same message
+                    if (
+                        isSpeaking &&
+                        currentlySpeaking &&
+                        currentlySpeaking.audio
+                    ) {
+                        if (currentlySpeaking.audio.paused) {
+                            // Resume speech
+                            currentlySpeaking.audio.play();
+                            button.classList.add("speaking");
+                            button.innerHTML =
+                                '<svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+                        } else {
+                            // Pause speech
+                            currentlySpeaking.audio.pause();
+                            button.classList.remove("speaking");
+                            button.innerHTML =
+                                '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
+                        }
+                    } else {
+                        // Start new speech
+                        speakText(messageText);
+                    }
+                }
+
+                // UI Helper Functions
+                function addUserMessage(message) {
+                    const messageElement = document.createElement("div");
+                    messageElement.className = "message user-message";
+                    messageElement.textContent = message;
+                    messageContainer.appendChild(messageElement);
+                    scrollToBottom();
+                }
+
+                function addBotMessage(message, model) {
+                    const messageElement = document.createElement("div");
+                    messageElement.className = "message bot-message";
+                    messageElement.textContent = message;
+
+                    // Add model indicator
+                    const modelIndicator = document.createElement("div");
+                    modelIndicator.className = "message-model";
+                    modelIndicator.textContent =
+                        model === "gemini" ? "Gemini" : "ChatGPT";
+                    messageElement.appendChild(modelIndicator);
+
+                    // Add TTS play button if TTS is enabled
+                    if (enableTTS.checked) {
+                        const playButton = document.createElement("div");
+                        playButton.className = "tts-play-button";
+                        playButton.innerHTML =
+                            '<svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>';
+                        playButton.dataset.text = message;
+
+                        // Add click event to play/pause speech
+                        playButton.addEventListener("click", function () {
+                            toggleSpeaking(message, this);
+                        });
+
+                        messageElement.appendChild(playButton);
+                    }
+
+                    messageContainer.appendChild(messageElement);
+                    scrollToBottom();
+                }
+
+                function addTypingIndicator() {
+                    const indicator = document.createElement("div");
+                    indicator.className = "typing-indicator";
+                    indicator.id = "typingIndicator";
+
+                    for (let i = 0; i < 3; i++) {
+                        const dot = document.createElement("span");
+                        indicator.appendChild(dot);
+                    }
+
+                    messageContainer.appendChild(indicator);
+                    scrollToBottom();
+                }
+
+                function removeTypingIndicator() {
+                    const indicator =
+                        document.getElementById("typingIndicator");
+                    if (indicator) {
+                        indicator.remove();
+                    }
+                }
+
+                function scrollToBottom() {
+                    messageContainer.scrollTop = messageContainer.scrollHeight;
+                }
+            });
+        </script>
+    </body>
+</html>
