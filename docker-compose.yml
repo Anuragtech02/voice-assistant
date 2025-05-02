@@ -53,7 +53,7 @@ services:
       # Use the standard Coolify web entry point (usually handles HTTPS)
       - traefik.http.routers.voice-assistant-frontend.entryPoints=http # Or 'https' if preferred/configured in Coolify
       # Define the service Traefik should forward to
-      - traefik.http.services.voice-assistant-frontend.loadbalancer.server.port=80 # Port Nginx listens on *inside* this container
+      - traefik.http.services.voice-assistant-frontend.loadbalancer.server.port=9002 # Port Nginx listens on *inside* this container
     # ------------------------------
 
 # Define the network for inter-service communication
