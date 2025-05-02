@@ -6,7 +6,11 @@ services:
     image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.2
     container_name: kokoro-tts
     restart: unless-stopped
-    network_mode: "host"
+    networks:
+      - voice-assistant-network
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     volumes:
       - kokoro-cache:/app/.cache
 
