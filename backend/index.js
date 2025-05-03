@@ -97,9 +97,9 @@ ${NUCLEI_DATA}
 // Configure CORS - Recommended: Replace "*" with your specific Webflow domain in production
 app.use(
   cors({
-    origin: "*", // Example: "https://your-webflow-site.webflow.io"
+    origin: "*",
     methods: ["POST", "GET", "OPTIONS"],
-  }),
+  })
 );
 
 app.use(express.json());
@@ -162,13 +162,16 @@ app.post("/api/chat", async (req, res) => {
     // Clean up potential refusal prefixes if the model adds them unnecessarily
     responseText = responseText.replace(
       /^Based on the provided information, I cannot answer that question\.\s*/i,
-      "",
+      ""
     ); // Remove prefix if answer follows
     if (
       responseText.trim() ===
       "Based on the provided information, I cannot answer that question."
     ) {
       // Keep the refusal if it's the *only* response
+      console.warn(
+        "Response was a refusal. No valid answer found in the provided context."
+      );
     }
 
     return res.json({
@@ -237,7 +240,7 @@ async function callGeminiAPI(fullPrompt) {
         response.promptFeedback.blockReason
       ) {
         console.warn(
-          `Gemini request blocked. Reason: ${response.promptFeedback.blockReason}`,
+          `Gemini request blocked. Reason: ${response.promptFeedback.blockReason}`
         );
         return "My response was blocked due to safety settings.";
       } else {
