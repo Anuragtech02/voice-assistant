@@ -483,9 +483,9 @@
 
                 // Kokoro TTS API endpoints
                 const KOKORO_VOICES_URL =
-                    "https://nuc-audio.inspectionapp.in/v1/audio/voices";
+                    "https://nuc-voice.inspectionapp.in/v1/audio/voices";
                 const KOKORO_SPEECH_URL =
-                    "https://nuc-audio.inspectionapp.in/v1/audio/speech";
+                    "https://nuc-voice.inspectionapp.in/v1/audio/speech";
 
                 // State variables
                 let isRecording = false;
@@ -812,10 +812,12 @@
 
                         if (data && data.voices && data.voices.length > 0) {
                             // Add each Kokoro voice to the dropdown
-                            data.voices.forEach((voice) => {
+                            data.voices.forEach((voiceId) => {
+                                // Rename variable for clarity
                                 const option = document.createElement("option");
-                                option.value = voice.id;
-                                option.textContent = voice.name || voice.id;
+                                // FIX: Use the voice string directly
+                                option.value = voiceId; // Set value to the string ID (e.g., "af_alloy")
+                                option.textContent = voiceId; // Set display text to the string ID
                                 ttsVoice.appendChild(option);
                             });
 
