@@ -9,19 +9,19 @@ services:
     restart: unless-stopped
     networks:
       - voice-assistant-network
-    # --- Coolify/Traefik Labels for nuc-audio ---
+    # --- Coolify/Traefik Labels for nuc-voice ---
     labels:
       - traefik.enable=true
       # Define the hostname Traefik should listen for
-      - traefik.http.routers.nuc-audio.rule=Host(`nuc-audio.inspectionapp.in`)
+      - traefik.http.routers.nuc-voice.rule=Host(`nuc-voice.inspectionapp.in`)
       # Use Coolify's standard HTTPS entry point (usually 'websecure')
-      - traefik.http.routers.nuc-audio.entryPoints=websecure
+      - traefik.http.routers.nuc-voice.entryPoints=websecure
       # Enable automatic HTTPS via Let's Encrypt (assuming configured in Coolify)
-      - traefik.http.routers.nuc-audio.tls.certresolver=letsencrypt
+      - traefik.http.routers.nuc-voice.tls.certresolver=letsencrypt
       # Define the service Traefik should forward to
-      - traefik.http.services.nuc-audio.loadbalancer.server.port=8880 # IMPORTANT: Verify this port! Check Kokoro-TTS docs/logs for the actual port it listens on inside the container. 8000 is common for FastAPI.
+      - traefik.http.services.nuc-voice.loadbalancer.server.port=8880 # IMPORTANT: Verify this port! Check Kokoro-TTS docs/logs for the actual port it listens on inside the container. 8000 is common for FastAPI.
       # Link the router to the service
-      - traefik.http.routers.nuc-audio.service=nuc-audio
+      - traefik.http.routers.nuc-voice.service=nuc-voice
     # ----------------------------------------------
 
   # Node.js backend for AI API proxying (Backend - Now Exposed)
