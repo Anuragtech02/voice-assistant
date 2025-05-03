@@ -2,17 +2,29 @@
 version: "3.8"
 
 services:
-  # Kokoro TTS API service (Internal Service)
+  # Kokoro TTS API service (Audio Server - Now Exposed)
   kokoro-tts:
     image: ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.2
     container_name: kokoro-tts # Optional, Coolify might override
     restart: unless-stopped
     networks:
       - voice-assistant-network
-    # No ports needed, only accessed internally by frontend/backend
-    # No dns needed, Coolify/Docker manages network DNS
+    # --- Coolify/Traefik Labels for nuc-audio ---
+    labels:
+      - traefik.enable=true
+      # Define the hostname Traefik should listen for
+      - traefik.http.routers.nuc-audio.rule=Host(`nuc-audio.inspectionapp.in`)
+      # Use Coolify's standard HTTPS entry point (usually 'websecure')
+      - traefik.http.routers.nuc-audio.entryPoints=websecure
+      # Enable automatic HTTPS via Let's Encrypt (assuming configured in Coolify)
+      - traefik.http.routers.nuc-audio.tls.certresolver=letsencrypt
+      # Define the service Traefik should forward to
+      - traefik.http.services.nuc-audio.loadbalancer.server.port=8880 # IMPORTANT: Verify this port! Check Kokoro-TTS docs/logs for the actual port it listens on inside the container. 8000 is common for FastAPI.
+      # Link the router to the service
+      - traefik.http.routers.nuc-audio.service=nuc-audio
+    # ----------------------------------------------
 
-  # Node.js backend for AI API proxying (Internal Service)
+  # Node.js backend for AI API proxying (Backend - Now Exposed)
   voice-assistant-backend:
     build:
       context: ./backend # Path relative to docker-compose.yml
@@ -30,44 +42,46 @@ services:
       - voice-assistant-network
     depends_on:
       - kokoro-tts
-    # No ports needed, only accessed internally by frontend
+    # --- Coolify/Traefik Labels for nuc-backend ---
+    labels:
+      - traefik.enable=true
+      # Define the hostname Traefik should listen for
+      - traefik.http.routers.nuc-backend.rule=Host(`nuc-backend.inspectionapp.in`)
+      # Use Coolify's standard HTTPS entry point
+      - traefik.http.routers.nuc-backend.entryPoints=websecure
+      # Enable automatic HTTPS
+      - traefik.http.routers.nuc-backend.tls.certresolver=letsencrypt
+      # Define the service Traefik should forward to (use the internal PORT)
+      - traefik.http.services.nuc-backend.loadbalancer.server.port=9001
+      # Link the router to the service
+      - traefik.http.routers.nuc-backend.service=nuc-backend
+    # ----------------------------------------------
 
-  # Frontend web server for voice assistant (Exposed via Coolify's Traefik)
+  # Frontend web server for voice assistant (Commented Out - Reference Only)
   # voice-assistant-frontend:
   #   build:
-  #     context: ./frontend # Path relative to docker-compose.yml
+  #     context: ./frontend
   #     dockerfile: Dockerfile
-  #   container_name: voice-assistant-frontend # Optional
+  #   container_name: voice-assistant-frontend
   #   restart: unless-stopped
   #   networks:
   #     - voice-assistant-network
   #   depends_on:
   #     - kokoro-tts
   #     - voice-assistant-backend
-  #   # --- Coolify/Traefik Labels ---
-  #   # Remove 'ports' mapping - Coolify handles external exposure via Traefik
   #   labels:
   #     - traefik.enable=true
-  #     # Define how Traefik routes external traffic to this service
-  #     - traefik.http.routers.voice-assistant-frontend.rule=Host(`${COOLIFY_FQDN}`)
-  #     # Use the standard Coolify web entry point (usually handles HTTPS)
-  #     - traefik.http.routers.voice-assistant-frontend.entryPoints=http # Or 'https' if preferred/configured in Coolify
-  #     # Define the service Traefik should forward to
+  #     - traefik.http.routers.voice-assistant-frontend.rule=Host(`${COOLIFY_FQDN}`) # Use COOLIFY_FQDN for the default domain
+  #     - traefik.http.routers.voice-assistant-frontend.entryPoints=websecure
+  #     - traefik.http.routers.voice-assistant-frontend.tls.certresolver=letsencrypt
   #     - traefik.http.services.voice-assistant-frontend.loadbalancer.server.port=9002 # Port Nginx listens on *inside* this container
-  #   # ------------------------------
+  #     - traefik.http.routers.voice-assistant-frontend.service=voice-assistant-frontend
 
 # Define the network for inter-service communication
 networks:
   voice-assistant-network:
     driver: bridge
 # --- Volumes ---
-# Define any named volumes here if your services need persistent storage.
-# Based on your setup, it doesn't seem like you need volumes unless
-# kokoro-tts downloads models to a specific path you want to persist
-# outside the container lifecycle.
-# Example:
+# Add volumes if needed (e.g., for kokoro-tts model persistence)
 # volumes:
 #   kokoro_models:
-# And add 'volumes:' section to kokoro-tts service:
-#   volumes:
-#     - kokoro_models:/path/inside/container/where/models/are/stored
